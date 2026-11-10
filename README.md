@@ -34,6 +34,17 @@ The keyboard can keep advertising yet ignore connection requests from a new host
 3. Connect USB-C, set the mode switch to wired, and press `Fn + [`. The RF chip resets to factory settings and advertises as `DfuTarg`; the tool connects and flashes it.
 4. Power-cycle the keyboard, switch to Bluetooth, and hold `Fn + Q` for 3–5 s to pair.
 
+## Updating the QMK (main MCU) firmware on Apple Silicon
+
+The VIA bootloader-jump command is disabled, so enter the STM32 DFU bootloader by hand.
+
+1. Download `QMK_firmware_nuphy_air60_v2_ansi_v2.1.5.bin` from <https://nuphy.com/pages/qmk-firmwares> and verify its SHA-1.
+2. `dfu-util` from the QMK Toolbox app is x86_64 only; install Rosetta 2 (`softwareupdate --install-rosetta`) or use a native build.
+3. Set the switch to wired, unplug, hold `Esc`, plug in, and release.
+4. `dfu-util -a 0 -d 0483:df11 -s 0x08000000:leave -D QMK_firmware_nuphy_air60_v2_ansi_v2.1.5.bin`
+
+Flashing resets the dynamic keymap; run `scripts/caps-mouse.sh` again afterwards.
+
 ## Key combinations (from nuphy-src/qmk_firmware)
 
 | Combination | Action |
