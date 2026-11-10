@@ -23,12 +23,15 @@ guard onConnect != nil || onDisconnect != nil else { print("usage: kvm-switch --
 final class Watcher {
   var present = 0
   var pending: DispatchWorkItem?
+  var generation = 0
   func changed(_ delta: Int) {
     let was = present > 0
     present = max(0, present + delta)
     let now = present > 0
     guard was != now else { return }
     pending?.cancel()
+    generation += 1
+    let gen = generation
     let work = DispatchWorkItem { [self] in
       guard (present > 0) == now else { return }
       if let v = now ? onConnect : onDisconnect {
@@ -36,6 +39,16 @@ final class Watcher {
         DispatchQueue.global().async {
           let ok = ddcSetInput(v)
           DispatchQueue.main.async { print(Date(), "input", v, ok ? "confirmed" : "NOT confirmed") }
+          // The monitor's input auto-select can fall back to a live input while the
+          // target host is still waking up; hold the input for a while.
+          for _ in 0..<10 {
+            sleep(3)
+            guard self.generation == gen else { return }
+            if let av = services().first, let cur = ddcRead(av, 0x60), cur & 0xff != v & 0xff {
+              let again = ddcSetInput(v)
+              DispatchQueue.main.async { print(Date(), "input reverted to", cur & 0xff, "-> reapplied", v, again) }
+            }
+          }
         }
       }
     }
