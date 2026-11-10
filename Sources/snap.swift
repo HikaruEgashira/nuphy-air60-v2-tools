@@ -228,13 +228,20 @@ final class PadSession {
   func key(_ e: NSEvent) {
     if e.keyCode == UInt16(kVK_Space) || e.keyCode == UInt16(kVK_Return) { return finish(click: true) }
     guard e.keyCode != UInt16(kVK_Escape), let ch = e.charactersIgnoringModifiers?.lowercased().first,
-          let r = padRows.firstIndex(where: { $0.contains(ch) }), let c = padRows[r].firstIndex(of: ch) else { return finish(click: false) }
+          press(ch, shift: e.modifierFlags.contains(.shift)) else { return finish(click: false) }
+  }
+
+  /// Moves for one letter key; false when `ch` is not in the letter block.
+  @discardableResult
+  func press(_ ch: Character, shift: Bool = false) -> Bool {
+    guard let r = padRows.firstIndex(where: { $0.contains(ch) }), let c = padRows[r].firstIndex(of: ch) else { return false }
     // Holding a key repeats, stepping element by element in that direction.
-    guard let next = landing(r, c) else { return }
+    guard let next = landing(r, c) else { return true }
     pos = next
     warp(pos)
-    if e.modifierFlags.contains(.shift) { return finish(click: true) }
+    if shift { finish(click: true); return true }
     redraw()
+    return true
   }
 
   func finish(click doClick: Bool) {
@@ -263,6 +270,31 @@ if CommandLine.arguments.count == 2, CommandLine.arguments[1] == "count" {
 
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)
+if CommandLine.arguments.count >= 3, CommandLine.arguments[1] == "demo" {
+  // Plays a key sequence for recordings: `snap demo <keys> [x,y,w,h]`; the optional
+  // region keeps targets inside one window.
+  let keys = Array(CommandLine.arguments[2])
+  let region: CGRect? = CommandLine.arguments.count > 3 ? {
+    let n = CommandLine.arguments[3].split(separator: ",").compactMap { Double($0) }
+    return n.count == 4 ? CGRect(x: n[0], y: n[1], width: n[2], height: n[3]) : nil
+  }() : nil
+  if let region { warp(center(region)) }
+  DispatchQueue.main.async {
+    startPad()
+    if let region, let p = PadSession.current {
+      p.elements = p.elements.filter { region.contains(center($0)) }
+      p.windows = p.windows.filter { region.contains(center($0)) }
+      p.redraw()
+    }
+  }
+  for (i, k) in keys.enumerated() {
+    DispatchQueue.main.asyncAfter(deadline: .now() + 1.2 + Double(i) * 0.8) { PadSession.current?.press(k) }
+  }
+  DispatchQueue.main.asyncAfter(deadline: .now() + 1.2 + Double(keys.count) * 0.8 + 0.6) {
+    PadSession.current?.finish(click: false); exit(0)
+  }
+  app.run()
+}
 if CommandLine.arguments.count == 2, CommandLine.arguments[1] == "show-pad" {
   DispatchQueue.main.async { startPad() }
   DispatchQueue.main.asyncAfter(deadline: .now() + 3) { exit(0) }
