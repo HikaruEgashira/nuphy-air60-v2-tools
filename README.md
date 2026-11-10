@@ -32,15 +32,18 @@ The keyboard can keep advertising yet ignore connection requests from a new host
 1. Download `NUPHY_RF_OTA_V2.1.5.zip` from <https://nuphy.com/pages/qmk-firmwares> and verify its SHA-1 against that page.
 2. `unzip NUPHY_RF_OTA_V2.1.5.zip -d rf && bin/nrf-dfu rf`
 3. Connect USB-C, set the mode switch to wired, and press `Fn + [`. The RF chip resets to factory settings and advertises as `DfuTarg`; the tool connects and flashes it.
-4. Power-cycle the keyboard, switch to Bluetooth, and hold `Fn + 1` for 3–5 s to pair.
+4. Power-cycle the keyboard, switch to Bluetooth, and hold `Fn + Q` for 3–5 s to pair.
 
 ## Key combinations (from nuphy-src/qmk_firmware)
 
 | Combination | Action |
 |---|---|
-| `Fn + -` (hold ~3 s) | Factory reset: clears BT bonds and EEPROM |
-| `Fn + [` (wired mode) | RF factory reset / enter DFU |
-| `Fn + 1/2/3` (hold) | Pair BT slot 1/2/3 |
+| `Fn + Q/W/E` | Switch to BT slot 1/2/3 (hold 3–5 s to pair; needs the mode switch on Bluetooth) |
+| `Fn + R` | 2.4 GHz dongle |
+| `Fn + [` (hold ~3 s) | Factory reset: clears BT bonds and EEPROM; in wired mode the RF chip enters DFU |
+| `Fn + ]` | Toggle keyboard sleep |
+| `Fn + \` | Show battery level |
+| `Fn + 1/2` | Display brightness down/up (Mac layer) |
 
 ## Caps-mouse layer
 
@@ -52,7 +55,7 @@ The script aborts without writing if layer 0 does not match the stock layout (`F
 
 ## Display input follows the keyboard (`kvm-switch`)
 
-`Fn + 1/2/3` is handled inside the keyboard firmware, so no key event reaches the host. `kvm-switch` instead watches the keyboard's Bluetooth LE HID connection and sets the display input over DDC/CI (VCP `0x60`):
+`Fn + Q/W/E` is handled inside the keyboard firmware, so no key event reaches the host. `kvm-switch` instead watches the keyboard's Bluetooth LE HID connection and sets the display input over DDC/CI (VCP `0x60`):
 
 - the keyboard connects to this Mac → switch the display to this Mac's input;
 - the keyboard leaves this Mac (after a 1.5 s debounce) → optionally switch to the other host's input.
@@ -61,8 +64,8 @@ Example: Mac A on HDMI1 uses BT slot 1, Mac B on HDMI2 uses BT slot 2.
 
 ```sh
 make
-scripts/install-kvm-switch.sh 17 18   # on Mac A (HDMI1): pair with Fn + 1
-scripts/install-kvm-switch.sh 18 17   # on Mac B (HDMI2): pair with Fn + 2
+scripts/install-kvm-switch.sh 17 18   # on Mac A (HDMI1): pair with Fn + Q
+scripts/install-kvm-switch.sh 18 17   # on Mac B (HDMI2): pair with Fn + W
 ```
 
 If the other host cannot run `kvm-switch`, the disconnect rule on the Mac still switches the display away; switching back happens when the keyboard reconnects to the Mac.
@@ -78,7 +81,7 @@ Caveats:
 
 ## Limitations
 
-- The VIA `eeprom_reset` command (`0x0A`) is not supported by the stock firmware; use `Fn + -`.
+- The VIA `eeprom_reset` command (`0x0A`) is not supported by the stock firmware; use `Fn + [`.
 - Firmware binaries are not redistributed here.
 
 ## License
