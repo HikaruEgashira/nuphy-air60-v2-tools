@@ -1,5 +1,5 @@
 diff --git a/keyboards/nuphy/air60_v2/ansi/ansi.c b/keyboards/nuphy/air60_v2/ansi/ansi.c
-index 26cd476..e18193b 100644
+index 26cd476..feb1485 100644
 --- a/keyboards/nuphy/air60_v2/ansi/ansi.c
 +++ b/keyboards/nuphy/air60_v2/ansi/ansi.c
 @@ -263,6 +263,22 @@ static void switch_dev_link(uint8_t mode)
@@ -45,7 +45,7 @@ index 26cd476..e18193b 100644
          }
      }
  
-@@ -774,3 +796,22 @@ void housekeeping_task_kb(void)
+@@ -774,3 +796,29 @@ void housekeeping_task_kb(void)
  
      Sleep_Handle();
  }
@@ -67,4 +67,11 @@ index 26cd476..e18193b 100644
 +    }
 +    data[0] = id_unhandled;
 +}
++#endif
++
++#ifdef SYS_SW_SELECTS_BT_SLOT
++/**
++ * @brief  Esc at power-on still enters the bootloader, but keeps the VIA keymap.
++ */
++void bootmagic_reset_eeprom(void) {}
 +#endif

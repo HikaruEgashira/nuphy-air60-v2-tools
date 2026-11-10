@@ -50,7 +50,7 @@ make && scripts/dvorak-ime.sh   # keyboard on USB, switch on wired
 
 ## Rear Mac/Win switch selects the host (custom firmware)
 
-`firmware/` patches the stock NuPhy source (`UPSTREAM_COMMIT`) so that the rear Mac/Win switch also selects the Bluetooth slot: Mac → BT1, Win → BT2. It also answers a VIA custom-value query (`08 00 01` → `[link_mode, ble_channel, sys_sw_state]`). `kvm-switch` uses that query to tell wired mode from a charging cable in Bluetooth mode.
+`firmware/` patches the stock NuPhy source (`UPSTREAM_COMMIT`) so that the rear Mac/Win switch also selects the Bluetooth slot: Mac → BT1, Win → BT2. Holding Esc at power-on still enters the bootloader but no longer wipes the VIA keymap (stock QMK bootmagic erases EEPROM). It also answers a VIA custom-value query (`08 00 01` → `[link_mode, ble_channel, sys_sw_state]`). `kvm-switch` uses that query to tell wired mode from a charging cable in Bluetooth mode.
 
 ```sh
 firmware/build.sh            # needs arm-none-eabi-gcc on PATH
