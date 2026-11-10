@@ -1,0 +1,70 @@
+diff --git a/keyboards/nuphy/air60_v2/ansi/ansi.c b/keyboards/nuphy/air60_v2/ansi/ansi.c
+index 26cd476..e18193b 100644
+--- a/keyboards/nuphy/air60_v2/ansi/ansi.c
++++ b/keyboards/nuphy/air60_v2/ansi/ansi.c
+@@ -263,6 +263,22 @@ static void switch_dev_link(uint8_t mode)
+     }
+ }
+ 
++#ifdef SYS_SW_SELECTS_BT_SLOT
++/**
++ * @brief  Bind the Mac/Win switch to a Bluetooth slot: Mac -> BT1, Win -> BT2.
++ */
++static void sys_sw_select_bt_slot(uint8_t slot)
++{
++    if (dev_info.rf_channel == slot && dev_info.ble_channel == slot) return;
++    dev_info.rf_channel  = slot;
++    dev_info.ble_channel = slot;
++    if (dev_info.link_mode != LINK_USB) {
++        dev_info.link_mode = slot;
++        uart_send_cmd(CMD_SET_LINK, 10, 20);
++    }
++}
++#endif
++
+ /**
+  * @brief  scan dial switch.
+  */
+@@ -317,6 +333,9 @@ void dial_sw_scan(void)
+             dev_info.sys_sw_state = SYS_SW_WIN;
+             keymap_config.nkro    = 1;
+             m_break_all_key();
++#ifdef SYS_SW_SELECTS_BT_SLOT
++            sys_sw_select_bt_slot(LINK_BT_2);
++#endif
+         }
+     } else {
+         if (dev_info.sys_sw_state != SYS_SW_MAC) {
+@@ -325,6 +344,9 @@ void dial_sw_scan(void)
+             dev_info.sys_sw_state = SYS_SW_MAC;
+             keymap_config.nkro    = 0;
+             m_break_all_key();
++#ifdef SYS_SW_SELECTS_BT_SLOT
++            sys_sw_select_bt_slot(LINK_BT_1);
++#endif
+         }
+     }
+ 
+@@ -774,3 +796,22 @@ void housekeeping_task_kb(void)
+ 
+     Sleep_Handle();
+ }
++
++#ifdef SYS_SW_SELECTS_BT_SLOT
++#include "via.h"
++/**
++ * @brief  VIA custom value: channel 0 (id_custom_channel), value 0x01 returns
++ *         [link_mode, ble_channel, sys_sw_state] so the host can tell wired from
++ *         Bluetooth while a charging cable is attached.
++ */
++void via_custom_value_command_kb(uint8_t *data, uint8_t length)
++{
++    if (data[0] == id_custom_get_value && data[1] == id_custom_channel && data[2] == 0x01) {
++        data[3] = dev_info.link_mode;
++        data[4] = dev_info.ble_channel;
++        data[5] = dev_info.sys_sw_state;
++        return;
++    }
++    data[0] = id_unhandled;
++}
++#endif

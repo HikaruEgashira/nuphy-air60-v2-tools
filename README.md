@@ -47,6 +47,17 @@ make && scripts/dvorak-ime.sh   # keyboard on USB, switch on wired
 - On macOS the script selects ABC and removes the Dvorak layout.
 - `bin/input-source list|enable|select|disable <id>` manages macOS input sources.
 
+## Rear Mac/Win switch selects the host (custom firmware)
+
+`firmware/` patches the stock NuPhy source (`UPSTREAM_COMMIT`) so that the rear Mac/Win switch also selects the Bluetooth slot: Mac → BT1, Win → BT2. It also answers a VIA custom-value query (`08 00 01` → `[link_mode, ble_channel, sys_sw_state]`). `kvm-switch` uses that query to tell wired mode from a charging cable in Bluetooth mode.
+
+```sh
+firmware/build.sh            # needs arm-none-eabi-gcc on PATH
+# then flash nuphy_air60_v2_ansi_kvm.bin as in "Updating the QMK firmware"
+```
+
+This firmware is unofficial. To go back, flash the official binary the same way.
+
 ## Updating the QMK (main MCU) firmware on Apple Silicon
 
 The VIA bootloader-jump command is disabled, so enter the STM32 DFU bootloader by hand.

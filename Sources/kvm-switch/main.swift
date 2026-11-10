@@ -20,22 +20,51 @@ while let k = it.next() {
 }
 guard onConnect != nil || onDisconnect != nil else { print("usage: kvm-switch --connect <input> [--disconnect <input>]"); exit(64) }
 
+/// Asks the kvm firmware for its link mode over VIA raw HID (USB only).
+/// Returns nil when no USB keyboard answers (stock firmware or not wired).
+func linkModeOverUSB() -> UInt8? {
+  let m = IOHIDManagerCreate(kCFAllocatorDefault, 0)
+  IOHIDManagerSetDeviceMatching(m, [kIOHIDVendorIDKey: vendor, kIOHIDPrimaryUsagePageKey: 0xFF60] as CFDictionary)
+  guard IOHIDManagerOpen(m, 0) == kIOReturnSuccess,
+        let d = (IOHIDManagerCopyDevices(m) as? Set<IOHIDDevice>)?.first,
+        IOHIDDeviceOpen(d, 0) == kIOReturnSuccess else { return nil }
+  defer { IOHIDDeviceClose(d, 0); IOHIDManagerClose(m, 0) }
+  var out = [UInt8](repeating: 0, count: 32); out[0] = 0x08; out[1] = 0x00; out[2] = 0x01
+  guard IOHIDDeviceSetReport(d, kIOHIDReportTypeOutput, 0, out, 32) == kIOReturnSuccess else { return nil }
+  for _ in 0..<20 {
+    var buf = [UInt8](repeating: 0, count: 32); var len = CFIndex(32)
+    if IOHIDDeviceGetReport(d, kIOHIDReportTypeInput, 0, &buf, &len) == kIOReturnSuccess, buf[0] == 0x08, buf[2] == 0x01 { return buf[3] }
+    usleep(20_000)
+  }
+  return nil
+}
+let linkUSB: UInt8 = 4
+
 final class Watcher {
-  var present = 0
+  var ble = 0, usb = 0
   var pending: DispatchWorkItem?
   var generation = 0
-  func changed(_ delta: Int) {
-    let was = present > 0
-    present = max(0, present + delta)
-    let now = present > 0
-    guard was != now else { return }
+  var last: Bool?
+  /// On this Mac = Bluetooth link to this Mac, or a USB cable to this Mac while the
+  /// keyboard is in wired mode. A cable in Bluetooth mode is only charging.
+  func onThisMac() -> Bool {
+    if ble > 0 { return true }
+    guard usb > 0 else { return false }
+    guard let mode = linkModeOverUSB() else { return true }  // stock firmware: assume wired
+    return mode == linkUSB
+  }
+  func update() {
+    let now = onThisMac()
+    guard now != last else { return }
+    let first = last == nil
+    last = now
     pending?.cancel()
     generation += 1
     let gen = generation
     let work = DispatchWorkItem { [self] in
-      guard (present > 0) == now else { return }
+      guard onThisMac() == now else { last = !now; return }
       if let v = now ? onConnect : onDisconnect {
-        print(Date(), now ? "keyboard connected" : "keyboard left", "-> input", v)
+        print(Date(), now ? "keyboard on this Mac" : "keyboard left", "-> input", v)
         DispatchQueue.global().async {
           let ok = ddcSetInput(v)
           DispatchQueue.main.async { print(Date(), "input", v, ok ? "confirmed" : "NOT confirmed") }
@@ -53,21 +82,27 @@ final class Watcher {
       }
     }
     pending = work
-    // Connect switches immediately; disconnect waits so a brief reconnect is ignored.
-    DispatchQueue.main.asyncAfter(deadline: .now() + (now ? 0 : delay), execute: work)
+    // Arriving switches immediately; leaving waits so a BLE/USB handover is ignored.
+    DispatchQueue.main.asyncAfter(deadline: .now() + (now || first ? 0 : delay), execute: work)
   }
 }
 let w = Watcher()
 let ctx = Unmanaged.passUnretained(w).toOpaque()
+func transport(_ d: IOHIDDevice) -> String { IOHIDDeviceGetProperty(d, kIOHIDTransportKey as CFString) as? String ?? "" }
 let m = IOHIDManagerCreate(kCFAllocatorDefault, 0)
-IOHIDManagerSetDeviceMatching(m, [
-  // Any transport: switching the keyboard to wired (USB on this Mac) must count as
-  // still being on this Mac, not as leaving it.
-  kIOHIDVendorIDKey: vendor,
-  kIOHIDPrimaryUsagePageKey: 1, kIOHIDPrimaryUsageKey: 6,
-] as CFDictionary)
-IOHIDManagerRegisterDeviceMatchingCallback(m, { c, _, _, _ in Unmanaged<Watcher>.fromOpaque(c!).takeUnretainedValue().changed(1) }, ctx)
-IOHIDManagerRegisterDeviceRemovalCallback(m, { c, _, _, _ in Unmanaged<Watcher>.fromOpaque(c!).takeUnretainedValue().changed(-1) }, ctx)
+IOHIDManagerSetDeviceMatching(m, [kIOHIDVendorIDKey: vendor, kIOHIDPrimaryUsagePageKey: 1, kIOHIDPrimaryUsageKey: 6] as CFDictionary)
+IOHIDManagerRegisterDeviceMatchingCallback(m, { c, _, _, d in
+  let w = Unmanaged<Watcher>.fromOpaque(c!).takeUnretainedValue()
+  if transport(d) == "USB" { w.usb += 1 } else { w.ble += 1 }
+  w.update()
+}, ctx)
+IOHIDManagerRegisterDeviceRemovalCallback(m, { c, _, _, d in
+  let w = Unmanaged<Watcher>.fromOpaque(c!).takeUnretainedValue()
+  if transport(d) == "USB" { w.usb = max(0, w.usb - 1) } else { w.ble = max(0, w.ble - 1) }
+  w.update()
+}, ctx)
 IOHIDManagerScheduleWithRunLoop(m, CFRunLoopGetMain(), CFRunLoopMode.defaultMode.rawValue)
 print("open", IOHIDManagerOpen(m, 0), "connect ->", onConnect as Any, "disconnect ->", onDisconnect as Any)
+// The rear mode switch changes wired/Bluetooth without any USB event; poll while a cable is attached.
+Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { _ in if w.usb > 0 { w.update() } }
 CFRunLoopRun()
