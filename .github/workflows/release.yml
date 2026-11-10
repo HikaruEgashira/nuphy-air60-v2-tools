@@ -1,0 +1,23 @@
+name: release
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - run: make
+      - run: tar czf nuphy-air60-v2-tools-macos-arm64.tar.gz bin scripts
+      - if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: gh release create "$TAG" nuphy-air60-v2-tools-macos-arm64.tar.gz --generate-notes
