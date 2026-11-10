@@ -52,3 +52,7 @@ The script aborts without writing if layer 0 does not match the stock layout (`F
 
 - The VIA `eeprom_reset` command (`0x0A`) is not supported by the stock firmware; use `Fn + -`.
 - Firmware binaries are not redistributed here.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
