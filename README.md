@@ -13,7 +13,7 @@ macOS command-line tools for recovering and customizing a NuPhy Air60 V2 keyboar
 | `bin/input-source` | Lists, enables, selects, or disables macOS input sources. |
 | `scripts/dvorak-ime.sh` | Puts Dvorak in the firmware and makes a Ctrl tap toggle the Japanese IME. |
 | `bin/kvm-switch` | Switches the display input when the keyboard connects to or leaves this Mac over Bluetooth. |
-| `bin/snap` | Pad, element-hint, and window-hint cursor modes (F13/F14/F15). |
+| `bin/snap` | Caps-tap cursor pad with element snapping (F13). |
 | `scripts/caps-mouse.sh` | Maps Caps + arrows to mouse movement, Caps + Space to left click, and Caps + Del to right click (dynamic keymap layer 7). |
 
 ## Build
@@ -89,19 +89,21 @@ make && scripts/caps-mouse.sh   # keyboard connected by USB, switch on wired
 
 The script aborts without writing if layer 0 does not match the stock layout (`Fn = MO(1)`, `Caps = KC_CAPS`). The mapping is stored in EEPROM and survives Bluetooth mode; a factory reset removes it. Caps Lock is no longer available on the base layers.
 
-### Pad, element hints, window hints
+### Caps pad
 
-`bin/snap` registers global hotkeys sent by the Caps layer (physical positions, Dvorak letters in parentheses):
+Tap Caps (`LT(7, F13)`) to start the pad; hold Caps for the mouse layer.
 
-| Caps + | Sends | Mode |
-|---|---|---|
-| Space | F13 | **Pad.** Each letter key moves the cursor by its offset from the middle of the letter block: right-edge keys move far right, keys near the middle move a little, the top row moves up, and the bottom row moves down. The step shrinks after every press, so press roughly first and then refine. Every key's landing spot is labeled. Space/Enter click, Shift+key moves and clicks, Esc exits. |
-| D (e) | F14 | **Element hints.** Labels every interactive element in every visible window with Dvorak home-row letters; type a label to move there, or type its last letter with Shift to click. |
-| , (w) | F15 | **Window hints.** Labels every on-screen window; type a label to move to the window and raise it. |
-| Enter | left click | |
-| arrows / Del | mouse move / right click | |
+- The screen shows every UI element and window outline, plus each letter key's landing spot.
+- A letter key moves the cursor by its offset from the middle of the letter block. Right-edge keys move far right, keys near the middle move a little, the top row moves up, and the bottom row moves down. The cursor sticks to the nearest element around the landing spot. The step shrinks after every press, so press roughly first and then refine.
+- Space/Enter click, Shift+key moves and clicks, and Esc or another Caps tap exits.
+- With the kvm firmware, the keyboard lights the letter block while the pad runs. Keys farther from the middle glow warmer.
 
-Needs Accessibility permission for the `snap` binary. `bin/snap count` prints how many targets it sees; `bin/snap show-pad` shows the pad for 3 s.
+| Hold Caps + | Action |
+|---|---|
+| arrows | mouse move |
+| Space / Del | left / right click |
+
+Needs Accessibility permission for the `snap` binary. `bin/snap count` prints how many elements it sees; `bin/snap show-pad` shows the pad for 3 s.
 
 ## Display input follows the keyboard (`kvm-switch`)
 

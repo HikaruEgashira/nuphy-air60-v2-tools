@@ -16,6 +16,7 @@ git checkout -q -- keyboards/nuphy/air60_v2/ansi/ansi.c
 git apply $here/sys-sw-bt-slot.patch
 km=keyboards/nuphy/air60_v2/ansi/keymaps
 rm -rf $km/kvm && cp -r $km/via $km/kvm && cp $here/kvm-config.h $km/kvm/config.h
+cp $here/kvm-pad.c $km/kvm/pad.c && printf 'SRC += pad.c\n' >> $km/kvm/rules.mk
 [[ -d $work/venv ]] || { python3 -m venv $work/venv && $work/venv/bin/pip -q install -r requirements.txt; }
 command -v dfu-suffix >/dev/null || { mkdir -p $work/stub; printf '#!/bin/sh\nexit 0\n' > $work/stub/dfu-suffix; chmod +x $work/stub/dfu-suffix; }
 PATH=$work/stub:$work/venv/bin:$PATH make -j8 nuphy/air60_v2/ansi:kvm
