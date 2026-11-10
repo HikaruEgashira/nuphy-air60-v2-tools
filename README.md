@@ -23,6 +23,8 @@ scripts/dvorak-ime.sh      # keyboard wired: Dvorak and the Ctrl IME toggle
 
 Run `bin/snap` and `bin/kvm-switch` as login agents. `snap` needs Accessibility permission.
 
+On Windows, `Sources/windows-snap.cs` is the same pad. It builds with the in-box .NET Framework `csc.exe`; the build command is in the file header.
+
 The firmware is unofficial. To go back, flash NuPhy's release from <https://nuphy.com/pages/qmk-firmwares>.
 
 ## License
