@@ -32,7 +32,11 @@ final class Watcher {
     let work = DispatchWorkItem { [self] in
       guard (present > 0) == now else { return }
       if let v = now ? onConnect : onDisconnect {
-        print(Date(), now ? "keyboard connected" : "keyboard left", "-> input", v, ddcSet(0x60, v))
+        print(Date(), now ? "keyboard connected" : "keyboard left", "-> input", v)
+        DispatchQueue.global().async {
+          let ok = ddcSetInput(v)
+          DispatchQueue.main.async { print(Date(), "input", v, ok ? "confirmed" : "NOT confirmed") }
+        }
       }
     }
     pending = work

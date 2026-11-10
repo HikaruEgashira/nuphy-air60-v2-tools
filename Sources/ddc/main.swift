@@ -9,7 +9,7 @@ if a[1] == "set", a.count >= 4, let v = UInt16(a[3]) {
   print("set 0x\(String(vcp, radix: 16)) = \(v):", ddcSet(vcp, v))
 } else {
   for (i, av) in avs.enumerated() {
-    let (r, buf) = ddcGet(av, vcp)
-    print("display \(i) 0x\(String(vcp, radix: 16)): ret=\(r) current=\(Int(buf[8]) << 8 | Int(buf[9])) max=\(Int(buf[6]) << 8 | Int(buf[7]))")
+    if let v = ddcRead(av, vcp) { print("display \(i) 0x\(String(vcp, radix: 16)): \(v) (low byte \(v & 0xff))") }
+    else { print("display \(i) 0x\(String(vcp, radix: 16)): invalid reply"); exit(1) }
   }
 }

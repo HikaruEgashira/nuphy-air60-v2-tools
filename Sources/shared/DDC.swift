@@ -36,3 +36,19 @@ func ddcGet(_ av: CFTypeRef, _ vcp: UInt8) -> (IOReturn, [UInt8]) {
   let r = IOAVServiceReadI2C(av, 0x37, 0x51, &buf, 12)
   return (r, buf)
 }
+/// Current value of a VCP feature, or nil when the reply is malformed or fails its checksum.
+func ddcRead(_ av: CFTypeRef, _ vcp: UInt8) -> UInt16? {
+  let (r, b) = ddcGet(av, vcp)
+  guard r == 0, b[0] == 0x6E, b[1] == 0x88, b[2] == 0x02, b[3] == 0x00, b[4] == vcp,
+        checksum(0x50, Array(b[0..<10])) == b[10] else { return nil }
+  return UInt16(b[8]) << 8 | UInt16(b[9])
+}
+/// Sets the display input and retries until it reads back (DELL echoes the code in both bytes).
+func ddcSetInput(_ v: UInt16, attempts: Int = 6) -> Bool {
+  for _ in 0..<attempts {
+    _ = ddcSet(0x60, v)
+    sleep(1)
+    if let av = services().first, let cur = ddcRead(av, 0x60), cur & 0xff == v & 0xff { return true }
+  }
+  return false
+}
