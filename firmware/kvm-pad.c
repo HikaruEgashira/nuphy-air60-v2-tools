@@ -19,6 +19,14 @@ static uint8_t led_of(keyrecord_t *record) {
 }
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    // Windows layer Ctrl tap: US-layout Windows toggles the Japanese IME with Alt+`.
+    if (keycode == LCTL_T(KC_LNG2)) {
+        if (record->tap.count) {
+            if (record->event.pressed) tap_code16(LALT(KC_GRV));
+            return false;
+        }
+        return true;
+    }
     if (keycode == LT(7, KC_F13)) {
         if (record->tap.count && record->event.pressed) { pad_active = !pad_active; flash_led = 0xFF; }
         return true;
