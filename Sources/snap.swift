@@ -52,41 +52,63 @@ func visible(_ r: CGRect, behind front: [CGRect]) -> Bool {
   return !front.contains { $0.contains(c) }
 }
 
+var accessibilityEnabled = Set<pid_t>()
+let accessibilityLock = NSLock()
+
+/// Interactive elements in every visible window, front to back occlusion applied.
+/// One IPC per element (role, position, size, children together), subtrees outside the
+/// window or hidden behind front windows are pruned, and apps are walked in parallel.
 func elementTargets() -> [Target] {
   let wins = onScreenWindows()
   let pids = Array(Set(wins.map(\.pid)))
-  var out: [Target] = []
-  let deadline = Date().addingTimeInterval(0.8)
-  for pid in pids {
+  let deadline = Date().addingTimeInterval(0.5)
+  let names = [kAXRoleAttribute, kAXPositionAttribute, kAXSizeAttribute, kAXChildrenAttribute] as CFArray
+  var perApp = [[Target]](repeating: [], count: pids.count)
+  perApp.withUnsafeMutableBufferPointer { slots in
+  DispatchQueue.concurrentPerform(iterations: pids.count) { i in
+    let pid = pids[i]
     let app = AXUIElementCreateApplication(pid)
-    AXUIElementSetMessagingTimeout(app, 0.2)
-    // Electron and Chromium only build their accessibility tree when asked.
-    AXUIElementSetAttributeValue(app, "AXManualAccessibility" as CFString, kCFBooleanTrue)
-    AXUIElementSetAttributeValue(app, "AXEnhancedUserInterface" as CFString, kCFBooleanTrue)
-    guard let axWins: [AXUIElement] = attr(app, kAXWindowsAttribute) else { continue }
+    AXUIElementSetMessagingTimeout(app, 0.15)
+    accessibilityLock.lock(); let fresh = accessibilityEnabled.insert(pid).inserted; accessibilityLock.unlock()
+    if fresh {
+      // Electron and Chromium only build their accessibility tree when asked.
+      AXUIElementSetAttributeValue(app, "AXManualAccessibility" as CFString, kCFBooleanTrue)
+      AXUIElementSetAttributeValue(app, "AXEnhancedUserInterface" as CFString, kCFBooleanTrue)
+    }
+    guard let axWins: [AXUIElement] = attr(app, kAXWindowsAttribute) else { return }
+    var out: [Target] = []
     for w in axWins {
-      guard let wf = frame(w) else { continue }
-      // Occluders: on-screen windows in front of this one.
-      guard let idx = wins.firstIndex(where: { $0.pid == pid && abs($0.rect.minX - wf.minX) < 2 && abs($0.rect.minY - wf.minY) < 2 }) else { continue }
+      guard let wf = frame(w),
+            let idx = wins.firstIndex(where: { $0.pid == pid && abs($0.rect.minX - wf.minX) < 2 && abs($0.rect.minY - wf.minY) < 2 }) else { continue }
       let front = wins[..<idx].map(\.rect)
+      if front.contains(where: { $0.contains(wf) }) { continue }   // fully covered
       var queue: [AXUIElement] = [w]
-      var visited = 0
-      while !queue.isEmpty, visited < 8000, Date() < deadline {
-        let e = queue.removeFirst(); visited += 1
-        if let role: String = attr(e, kAXRoleAttribute), interactiveRoles.contains(role),
-           let f = frame(e), f.width >= 6, f.height >= 6 {
+      var head = 0
+      while head < queue.count, head < 8000, Date() < deadline {
+        let e = queue[head]; head += 1
+        var values: CFArray?
+        guard AXUIElementCopyMultipleAttributeValues(e, names, AXCopyMultipleAttributeOptions(rawValue: 0), &values) == .success,
+              let v = values as? [Any], v.count == 4 else { continue }
+        var pos = CGPoint.zero, size = CGSize.zero
+        var f: CGRect?
+        if CFGetTypeID(v[1] as CFTypeRef) == AXValueGetTypeID(), CFGetTypeID(v[2] as CFTypeRef) == AXValueGetTypeID(),
+           AXValueGetValue(v[1] as! AXValue, .cgPoint, &pos), AXValueGetValue(v[2] as! AXValue, .cgSize, &size) {
+          f = CGRect(origin: pos, size: size)
+        }
+        if let f, e != w, !f.intersects(wf) || front.contains(where: { $0.contains(f) }) { continue }   // prune
+        if let role = v[0] as? String, interactiveRoles.contains(role), let f, f.width >= 6, f.height >= 6 {
           let clipped = f.intersection(wf)
           if !clipped.isNull, visible(clipped, behind: front) { out.append(Target(rect: clipped, element: e, pid: pid)) }
         }
-        if let kids: [AXUIElement] = attr(e, kAXChildrenAttribute) ?? attr(e, kAXVisibleChildrenAttribute) {
-          queue.append(contentsOf: kids)
-        }
+        if let kids = v[3] as? [AXUIElement] { queue.append(contentsOf: kids) }
       }
     }
+    slots[i] = out
+  }
   }
   // Collapse near-duplicates (nested elements with the same center).
   var seen = Set<String>()
-  return out.filter { seen.insert("\(Int($0.rect.midX) / 8),\(Int($0.rect.midY) / 8)").inserted }
+  return perApp.joined().filter { seen.insert("\(Int($0.rect.midX) / 8),\(Int($0.rect.midY) / 8)").inserted }
 }
 
 
