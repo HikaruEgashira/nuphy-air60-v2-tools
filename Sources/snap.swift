@@ -1,6 +1,6 @@
 // snap: Caps-tap cursor pad (F13). Outlines every element and window; each letter key
-// moves the cursor by its offset from the middle of the letter block and sticks to the
-// nearest element. Space/Enter click, Shift+key moves and clicks, Esc exits.
+// snaps the cursor to the element that lies in that key's direction from the middle of
+// the letter block, nearer keys to nearer elements; holding a key keeps stepping. Space/Enter click, Shift+key moves and clicks, Esc exits.
 // Needs Accessibility permission.
 import AppKit
 import ApplicationServices
@@ -140,9 +140,8 @@ final class PadView: NSView {
   }
 }
 
-/// Caps tap: outlines every element and window, then each letter key moves the cursor
-/// by its offset from the middle of the letter block and sticks to the nearest element
-/// around the landing spot. The step shrinks per press.
+/// Caps tap: outlines every element and window; each letter key snaps the cursor to the
+/// element in that key's direction and distance.
 final class PadSession {
   static var current: PadSession?
   var window: KeyWindow?
@@ -179,15 +178,23 @@ final class PadSession {
     PadSession.current = self
   }
 
-  /// Where a key would land: the raw offset, pulled onto the nearest element in reach.
-  func landing(_ r: Int, _ c: Int) -> CGPoint {
+  /// Where a key leads: the element (else window) whose center best matches the key's
+  /// offset from the middle of the letter block, among those lying in that direction.
+  /// nil when nothing lies that way.
+  func landing(_ r: Int, _ c: Int) -> CGPoint? {
     let o = padOffset(r, c)
-    let raw = CGPoint(x: min(max(pos.x + o.dx * span.width, screen.minX + 1), screen.maxX - 1),
-                      y: min(max(pos.y + o.dy * span.height, screen.minY + 1), screen.maxY - 1))
-    let reach = max(min(span.width, span.height) * 0.5, 12)
-    let near = elements.map { center($0) }.min { hypot($0.x - raw.x, $0.y - raw.y) < hypot($1.x - raw.x, $1.y - raw.y) }
-    if let n = near, hypot(n.x - raw.x, n.y - raw.y) <= reach, n != pos { return n }
-    return raw
+    let goal = CGPoint(x: pos.x + o.dx * span.width, y: pos.y + o.dy * span.height)
+    let dir = CGVector(dx: o.dx * span.width, dy: o.dy * span.height)
+    let len = hypot(dir.dx, dir.dy)
+    func best(_ pts: [CGPoint]) -> CGPoint? {
+      pts.filter { p in
+        let v = CGVector(dx: p.x - pos.x, dy: p.y - pos.y)
+        let d = hypot(v.dx, v.dy)
+        guard d > 4 else { return false }
+        return (v.dx * dir.dx + v.dy * dir.dy) / (d * len) > 0.64   // within ~50 degrees
+      }.min { hypot($0.x - goal.x, $0.y - goal.y) < hypot($1.x - goal.x, $1.y - goal.y) }
+    }
+    return best(elements.map(center)) ?? best(windows.map(center))
   }
 
   func local(_ p: CGPoint) -> CGPoint { CGPoint(x: p.x - screen.minX, y: p.y - screen.minY) }
@@ -197,7 +204,7 @@ final class PadSession {
     v.origin = local(pos)
     v.elements = elements.map { $0.offsetBy(dx: -screen.minX, dy: -screen.minY) }
     v.windows = windows.map { $0.offsetBy(dx: -screen.minX, dy: -screen.minY) }
-    v.landings = padRows.enumerated().flatMap { r, row in row.enumerated().map { c, k in (k, local(landing(r, c))) } }
+    v.landings = padRows.enumerated().flatMap { r, row in row.enumerated().compactMap { c, k in landing(r, c).map { (k, local($0)) } } }
     v.needsDisplay = true
   }
 
@@ -205,10 +212,11 @@ final class PadSession {
     if e.keyCode == UInt16(kVK_Space) || e.keyCode == UInt16(kVK_Return) { return finish(click: true) }
     guard e.keyCode != UInt16(kVK_Escape), let ch = e.charactersIgnoringModifiers?.lowercased().first,
           let r = padRows.firstIndex(where: { $0.contains(ch) }), let c = padRows[r].firstIndex(of: ch) else { return finish(click: false) }
-    pos = landing(r, c)
+    // Holding a key repeats, stepping element by element in that direction.
+    guard let next = landing(r, c) else { return }
+    pos = next
     warp(pos)
     if e.modifierFlags.contains(.shift) { return finish(click: true) }
-    span = CGSize(width: max(span.width * 0.45, 8), height: max(span.height * 0.45, 6))
     redraw()
   }
 

@@ -93,10 +93,10 @@ The script aborts without writing if layer 0 does not match the stock layout (`F
 
 Tap Caps (`LT(7, F13)`) to start the pad; hold Caps for the mouse layer.
 
-- The screen shows every UI element and window outline, plus each letter key's landing spot.
-- A letter key moves the cursor by its offset from the middle of the letter block. Right-edge keys move far right, keys near the middle move a little, the top row moves up, and the bottom row moves down. The cursor sticks to the nearest element around the landing spot. The step shrinks after every press, so press roughly first and then refine.
+- The screen shows every UI element and window outline, plus each letter key's label on its target.
+- A letter key snaps the cursor to an element in that key's direction from the middle of the letter block. Keys near the middle go to neighboring elements, and edge keys go to far ones. The top row goes up and the bottom row goes down. Holding a key keeps stepping element by element.
 - Space/Enter click, Shift+key moves and clicks, and Esc or another Caps tap exits.
-- With the kvm firmware, the keyboard lights the letter block while the pad runs. Keys farther from the middle glow warmer.
+- With the kvm firmware, the letter block glows dim white while the pad runs, and the key being pressed lights up.
 
 | Hold Caps + | Action |
 |---|---|
