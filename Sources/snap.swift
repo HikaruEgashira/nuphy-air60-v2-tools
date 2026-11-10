@@ -1,4 +1,4 @@
-// snap: Caps-tap cursor pad (F13). Outlines every element and window; each letter key
+// snap: Caps-tap cursor pad (F13). Labels each letter key on its target; each letter key
 // snaps the cursor to the element that lies in that key's direction from the middle of
 // the letter block, nearer keys to nearer elements; holding a key keeps stepping. Space/Enter click, Shift+key moves and clicks, Esc exits.
 // Needs Accessibility permission.
@@ -122,11 +122,6 @@ final class PadView: NSView {
   var landings: [(Character, CGPoint)] = []
   override var isFlipped: Bool { true }
   override func draw(_ dirty: NSRect) {
-    NSColor.black.withAlphaComponent(0.08).setFill(); bounds.fill()
-    NSColor.systemBlue.withAlphaComponent(0.8).setStroke()
-    for w in windows { let p = NSBezierPath(rect: w.insetBy(dx: 1, dy: 1)); p.lineWidth = 3; p.stroke() }
-    NSColor.systemTeal.withAlphaComponent(0.7).setStroke()
-    for e in elements { NSBezierPath(roundedRect: e, xRadius: 3, yRadius: 3).stroke() }
     NSColor.systemOrange.setFill()
     NSBezierPath(ovalIn: CGRect(x: origin.x - 6, y: origin.y - 6, width: 12, height: 12)).fill()
     let font = NSFont.monospacedSystemFont(ofSize: 14, weight: .heavy)
@@ -140,7 +135,7 @@ final class PadView: NSView {
   }
 }
 
-/// Caps tap: outlines every element and window; each letter key snaps the cursor to the
+/// Caps tap: labels each letter key on its target; each letter key snaps the cursor to the
 /// element in that key's direction and distance.
 final class PadSession {
   static var current: PadSession?
