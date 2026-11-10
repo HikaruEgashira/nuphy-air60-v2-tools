@@ -1,5 +1,5 @@
 SWIFTC ?= swiftc
-BINS := bin/ble-scan bin/nrf-dfu bin/via-raw bin/ddc bin/kvm-switch
+BINS := bin/ble-scan bin/nrf-dfu bin/via-raw bin/ddc bin/kvm-switch bin/input-source
 all: $(BINS)
 bin/%: Sources/%.swift
 	@mkdir -p bin

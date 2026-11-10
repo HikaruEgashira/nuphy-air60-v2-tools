@@ -10,6 +10,8 @@ macOS command-line tools for recovering and customizing a NuPhy Air60 V2 keyboar
 | `bin/nrf-dfu <dir>` | Flashes the nRF52 RF firmware over BLE using the Nordic Secure DFU protocol. `<dir>` holds the extracted `app.dat` and `app.bin` of `NUPHY_RF_OTA_Vx.x.x.zip`. Every 4 KiB object is verified with CRC32. |
 | `bin/via-raw <hex bytes…>` | Sends one 32-byte VIA raw-HID report over USB and prints the response. |
 | `bin/ddc get\|set <vcp> [value]` | Reads or writes a DDC/CI VCP feature on external displays (Apple Silicon). |
+| `bin/input-source` | Lists, enables, selects, or disables macOS input sources. |
+| `scripts/dvorak-ime.sh` | Puts Dvorak in the firmware and makes a Ctrl tap toggle the Japanese IME. |
 | `bin/kvm-switch` | Switches the display input when the keyboard connects to or leaves this Mac over Bluetooth. |
 | `scripts/caps-mouse.sh` | Maps Caps + arrows to mouse movement, Caps + Space to left click, and Caps + Del to right click (dynamic keymap layer 7). |
 
@@ -33,6 +35,17 @@ The keyboard can keep advertising yet ignore connection requests from a new host
 2. `unzip NUPHY_RF_OTA_V2.1.5.zip -d rf && bin/nrf-dfu rf`
 3. Connect USB-C, set the mode switch to wired, and press `Fn + [`. The RF chip resets to factory settings and advertises as `DfuTarg`; the tool connects and flashes it.
 4. Power-cycle the keyboard, switch to Bluetooth, and hold `Fn + Q` for 3–5 s to pair.
+
+## Dvorak in firmware and Ctrl-tap IME toggle
+
+```sh
+make && scripts/dvorak-ime.sh   # keyboard on USB, switch on wired
+```
+
+- Writes Dvorak to the Mac (0) and Windows (3) base layers, so every host and IME gets Dvorak. Set the OS layout to US/ABC (QWERTY).
+- Ctrl is a mod-tap: hold for Ctrl, tap to toggle the IME. Mac sends F18, which the script binds to "Select the previous input source"; Windows sends LANG2 (VK_KANJI).
+- On macOS the script selects ABC and removes the Dvorak layout.
+- `bin/input-source list|enable|select|disable <id>` manages macOS input sources.
 
 ## Updating the QMK (main MCU) firmware on Apple Silicon
 
