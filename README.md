@@ -82,7 +82,7 @@ The script aborts without writing if layer 0 does not match the stock layout (`F
 `Fn + Q/W/E` is handled inside the keyboard firmware, so no key event reaches the host. `kvm-switch` instead watches the keyboard's Bluetooth LE HID connection and sets the display input over DDC/CI (VCP `0x60`):
 
 - the keyboard connects to this Mac → switch the display to this Mac's input;
-- the keyboard leaves this Mac (after a 1.5 s debounce) → optionally switch to the other host's input.
+- the keyboard leaves this Mac (after a 3 s debounce) → optionally switch to the other host's input.
 
 Example: Mac A on HDMI1 uses BT slot 1, Mac B on HDMI2 uses BT slot 2.
 
@@ -99,7 +99,7 @@ Input codes for DELL monitors: HDMI1 = 17, HDMI2 = 18, DP = 15, USB-C = 27. Chec
 Caveats:
 
 - The keyboard drops its Bluetooth link when it sleeps, which looks like a slot switch. Disable keyboard sleep with `Fn + ]` if the disconnect rule fires unexpectedly.
-- Wired (USB) connections are ignored.
+- A wired (USB) connection to this Mac counts as connected, so flipping the switch to wired does not switch the display away.
 - DDC/CI must be enabled in the monitor menu.
 - Logs: `~/Library/Logs/kvm-switch.log`. Uninstall: `launchctl bootout gui/$(id -u)/dev.nuphy.kvm-switch`.
 

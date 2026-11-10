@@ -1,12 +1,12 @@
 // kvm-switch: switch the external display input when a Bluetooth keyboard
 // connects to or leaves this Mac.
-// usage: kvm-switch --connect <input> [--disconnect <input>] [--vendor 0x19f5] [--delay 1.5]
+// usage: kvm-switch --connect <input> [--disconnect <input>] [--vendor 0x19f5] [--delay 3.0]
 // DELL input codes (VCP 0x60): HDMI1=17 (0x11), HDMI2=18 (0x12), DP=15, USB-C=27.
 import Foundation
 import IOKit.hid
 setvbuf(stdout, nil, _IONBF, 0)
 
-var onConnect: UInt16?; var onDisconnect: UInt16?; var vendor = 0x19f5; var delay = 1.5
+var onConnect: UInt16?; var onDisconnect: UInt16?; var vendor = 0x19f5; var delay = 3.0
 var it = CommandLine.arguments.dropFirst().makeIterator()
 func num(_ s: String?) -> Int { guard let s else { return -1 }; return s.hasPrefix("0x") ? Int(s.dropFirst(2), radix: 16) ?? -1 : Int(s) ?? -1 }
 while let k = it.next() {
@@ -61,7 +61,9 @@ let w = Watcher()
 let ctx = Unmanaged.passUnretained(w).toOpaque()
 let m = IOHIDManagerCreate(kCFAllocatorDefault, 0)
 IOHIDManagerSetDeviceMatching(m, [
-  kIOHIDVendorIDKey: vendor, kIOHIDTransportKey: "Bluetooth Low Energy",
+  // Any transport: switching the keyboard to wired (USB on this Mac) must count as
+  // still being on this Mac, not as leaving it.
+  kIOHIDVendorIDKey: vendor,
   kIOHIDPrimaryUsagePageKey: 1, kIOHIDPrimaryUsageKey: 6,
 ] as CFDictionary)
 IOHIDManagerRegisterDeviceMatchingCallback(m, { c, _, _, _ in Unmanaged<Watcher>.fromOpaque(c!).takeUnretainedValue().changed(1) }, ctx)
