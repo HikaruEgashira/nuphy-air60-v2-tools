@@ -13,6 +13,7 @@ macOS command-line tools for recovering and customizing a NuPhy Air60 V2 keyboar
 | `bin/input-source` | Lists, enables, selects, or disables macOS input sources. |
 | `scripts/dvorak-ime.sh` | Puts Dvorak in the firmware and makes a Ctrl tap toggle the Japanese IME. |
 | `bin/kvm-switch` | Switches the display input when the keyboard connects to or leaves this Mac over Bluetooth. |
+| `bin/snap` | Moves the cursor to the nearest window (Shift+F13-F16) or UI element (F13-F16) in a direction. |
 | `scripts/caps-mouse.sh` | Maps Caps + arrows to mouse movement, Caps + Space to left click, and Caps + Del to right click (dynamic keymap layer 7). |
 
 ## Build
@@ -87,6 +88,17 @@ make && scripts/caps-mouse.sh   # keyboard connected by USB, switch on wired
 ```
 
 The script aborts without writing if layer 0 does not match the stock layout (`Fn = MO(1)`, `Caps = KC_CAPS`). The mapping is stored in EEPROM and survives Bluetooth mode; a factory reset removes it. Caps Lock is no longer available on the base layers.
+
+### Window and element snap
+
+`bin/snap` registers global hotkeys and warps the cursor:
+
+| Caps + (physical key) | Sends | Moves the cursor to |
+|---|---|---|
+| H / J / K / L | F13 / F14 / F15 / F16 | nearest UI element left / down / up / right (Accessibility tree of the window under the cursor) |
+| A / S / W / D | Shift + F13 / F14 / F15 / F16 | nearest window left / down / up / right |
+
+Element snap needs Accessibility permission for the `snap` binary (System Settings → Privacy & Security → Accessibility). `bin/snap test <0-7>` runs one snap without hotkeys.
 
 ## Display input follows the keyboard (`kvm-switch`)
 
