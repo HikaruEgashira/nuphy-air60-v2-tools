@@ -12,6 +12,7 @@ set_key 07 02 0e 00 d2
 # clear keys used by earlier snap versions (H/J/K/L, A/S/W/D, Enter)
 for rc in "03 06" "03 07" "03 08" "03 09" "03 01" "03 02" "02 02" "03 03" "04 09" "03 0d"; do set_key 07 ${=rc} 00 01; done
 set_key 07 05 06 00 d1   # Caps+Space -> left click
+set_key 07 00 00 7c 00   # Caps(hold)+Esc -> bootloader; Esc-at-plug-in timing is unreliable
 # Caps: hold -> layer 7, tap -> F13 (snap pad); kvm firmware lights the letter block meanwhile on Mac(0) and Win(3) base layers
 set_key 00 03 00 47 68; set_key 03 03 00 47 68
 echo verify; ./via-raw 04 00 03 00 | grep resp; ./via-raw 04 07 05 0e | grep resp

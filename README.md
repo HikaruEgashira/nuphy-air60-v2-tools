@@ -10,7 +10,7 @@ One NuPhy Air60 V2, two computers, one monitor, and no mouse.
 - **One switch changes the whole desk.** The rear Mac/Win switch moves the keyboard to the other computer, and the monitor follows it.
 - **Type Dvorak everywhere.** The layout lives in the keyboard, so every computer and the Japanese IME get the same Dvorak. Tap Ctrl to toggle Japanese.
 - **Recover without the Windows-only NuPhy Console.** Re-flash the Bluetooth chip and the keyboard firmware from a Mac when pairing breaks.
-- **Never lose the setup by accident.** Touching Esc while plugging in no longer wipes the keymap.
+- **Never lose the setup by accident.** Touching Esc while plugging in no longer wipes the keymap. Hold Caps, then press Esc to enter flash mode on purpose.
 
 ## Get started
 
