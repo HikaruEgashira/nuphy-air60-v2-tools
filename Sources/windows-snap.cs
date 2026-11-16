@@ -135,6 +135,10 @@ static class Collector
             Type(ControlType.TreeItem), Type(ControlType.Slider), Type(ControlType.SplitButton),
             Type(ControlType.DataItem)));
 
+    // In-flight queries by window. UI Automation queries cannot be cancelled, so a window that
+    // missed an earlier budget keeps its one query, which later sessions reuse instead of piling up threads.
+    static readonly Dictionary<IntPtr, Task<List<Point>>> InFlight = new Dictionary<IntPtr, Task<List<Point>>>();
+
     static PropertyCondition Type(ControlType type) { return new PropertyCondition(AutomationElement.ControlTypeProperty, type); }
 
     // Collects window centers and unoccluded element centers on the monitor. Each window is queried
@@ -156,7 +160,7 @@ static class Collector
         for (int i = 0; i < windows.Count; i++)
         {
             IntPtr hwnd = windows[i].Key;
-            queries[i] = Task.Factory.StartNew(() => Query(hwnd, monitor), TaskCreationOptions.LongRunning);
+            queries[i] = Start(hwnd, monitor);
         }
         Task.WaitAll(queries, Math.Max(0, BudgetMs - (int)clock.ElapsedMilliseconds));
 
@@ -168,6 +172,20 @@ static class Collector
                 if (OwnedBy(center, windows[i].Key) && elementCells.Add(Cell(center))) targets.Elements.Add(center);
         }
         return targets;
+    }
+
+    static Task<List<Point>> Start(IntPtr hwnd, Rectangle monitor)
+    {
+        lock (InFlight)
+        {
+            Task<List<Point>> running;
+            if (InFlight.TryGetValue(hwnd, out running)) return running;
+            var query = Task.Factory.StartNew(() => Query(hwnd, monitor), TaskCreationOptions.LongRunning);
+            InFlight[hwnd] = query;
+            query.ContinueWith(_ => { lock (InFlight) { if (InFlight[hwnd] == query) InFlight.Remove(hwnd); } },
+                TaskContinuationOptions.ExecuteSynchronously);
+            return query;
+        }
     }
 
     static List<Point> Query(IntPtr hwnd, Rectangle monitor)
