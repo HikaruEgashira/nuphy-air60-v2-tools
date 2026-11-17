@@ -11,6 +11,8 @@
 // Usage: snap.exe            F13 hotkey loop (single instance, no console)
 //        snap.exe count      print the element count and collection time, then exit
 //        snap.exe show-pad   show one session for 3 s, then exit
+//
+// The hotkey loop logs to %LOCALAPPDATA%\nuphy-tools\snap.log, rolled to snap.log.1 past 1 MB.
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -18,6 +20,7 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Drawing.Text;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -51,8 +54,8 @@ static class Native
     public delegate bool EnumWindowsProc(IntPtr hwnd, IntPtr lParam);
 
     [DllImport("user32.dll")] public static extern bool SetProcessDpiAwarenessContext(IntPtr context);
-    [DllImport("user32.dll")] public static extern bool RegisterHotKey(IntPtr hwnd, int id, uint modifiers, uint vk);
-    [DllImport("user32.dll")] public static extern IntPtr SetWindowsHookEx(int idHook, LowLevelProc proc, IntPtr module, uint threadId);
+    [DllImport("user32.dll", SetLastError = true)] public static extern bool RegisterHotKey(IntPtr hwnd, int id, uint modifiers, uint vk);
+    [DllImport("user32.dll", SetLastError = true)] public static extern IntPtr SetWindowsHookEx(int idHook, LowLevelProc proc, IntPtr module, uint threadId);
     [DllImport("user32.dll")] public static extern bool UnhookWindowsHookEx(IntPtr hook);
     [DllImport("user32.dll")] public static extern IntPtr CallNextHookEx(IntPtr hook, int code, IntPtr wParam, IntPtr lParam);
     [DllImport("user32.dll")] public static extern short GetAsyncKeyState(int vk);
@@ -83,6 +86,37 @@ static class Native
     [DllImport("kernel32.dll")] public static extern IntPtr GetModuleHandle(string name);
     [DllImport("kernel32.dll")] public static extern IntPtr GetStdHandle(int which);
     [DllImport("kernel32.dll")] public static extern bool AttachConsole(int pid);
+}
+
+// Append-only daemon log. A full file rolls over to one previous generation; logging never throws.
+static class Log
+{
+    const long MaxBytes = 1 << 20;
+    static readonly object Gate = new object();
+    static readonly string Dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "nuphy-tools");
+    public static readonly string FilePath = Path.Combine(Dir, "snap.log");
+
+    public static void Write(string format, params object[] args)
+    {
+        try
+        {
+            string line = string.Format("{0:yyyy-MM-dd HH:mm:ss.fff} [{1}] {2}{3}",
+                DateTime.Now, Process.GetCurrentProcess().Id, string.Format(format, args), Environment.NewLine);
+            lock (Gate)
+            {
+                Directory.CreateDirectory(Dir);
+                var info = new FileInfo(FilePath);
+                if (info.Exists && info.Length >= MaxBytes)
+                {
+                    string previous = FilePath + ".1";
+                    if (File.Exists(previous)) File.Delete(previous);
+                    File.Move(FilePath, previous);
+                }
+                File.AppendAllText(FilePath, line);
+            }
+        }
+        catch (Exception) { } // a log that cannot be written must not take the daemon down
+    }
 }
 
 // The 3x10 key grid. Windows runs the US layout while the firmware emits Dvorak, so each key is
@@ -347,7 +381,11 @@ sealed class Session
         Native.POINT p;
         Native.GetCursorPos(out p);
         hook = Native.SetWindowsHookEx(Native.WH_KEYBOARD_LL, hookProc, Native.GetModuleHandle(null), 0);
-        if (hook == IntPtr.Zero) return false;
+        if (hook == IntPtr.Zero)
+        {
+            Log.Write("SetWindowsHookEx failed: error {0}", Marshal.GetLastWin32Error());
+            return false;
+        }
         Active = true;
         cursor = new Point(p.X, p.Y);
         monitor = Screen.FromPoint(cursor).Bounds;
@@ -537,7 +575,11 @@ sealed class HotkeyWindow : NativeWindow
 
     protected override void WndProc(ref Message m)
     {
-        if (m.Msg == Native.WM_HOTKEY) pressed();
+        if (m.Msg == Native.WM_HOTKEY)
+        {
+            try { pressed(); }
+            catch (Exception e) { Log.Write("hotkey handler failed: {0}", e); }
+        }
         base.WndProc(ref m);
     }
 }
@@ -562,16 +604,26 @@ static class Program
         bool first;
         using (new Mutex(true, @"Local\nuphy-tools.snap", out first))
         {
-            if (!first) return 0;
+            if (!first)
+            {
+                Log.Write("another instance is running; exiting");
+                return 0;
+            }
+            Log.Write("started");
+            AppDomain.CurrentDomain.UnhandledException += (sender, e) => Log.Write("unhandled exception: {0}", e.ExceptionObject);
+            Application.ThreadException += (sender, e) => Log.Write("UI thread exception: {0}", e.Exception);
             var session = new Session(InstallUiContext());
             var hotkey = new HotkeyWindow(session.Toggle);
             if (!Native.RegisterHotKey(hotkey.Handle, 1, Native.MOD_NOREPEAT, Native.VK_F13))
             {
+                Log.Write("RegisterHotKey(F13) failed: error {0}", Marshal.GetLastWin32Error());
                 MessageBox.Show("F13 is already registered as a hotkey by another program.", "snap", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return 1;
             }
             Task.Factory.StartNew(() => Collector.Collect(Screen.PrimaryScreen.Bounds)); // warm UIA so the first session is not cold
+            Log.Write("F13 hotkey registered");
             Application.Run();
+            Log.Write("exiting");
             return 0;
         }
     }
