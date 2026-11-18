@@ -1,0 +1,16 @@
+# Shared landing-selection table for Sources/shared/Landing.swift and Sources/windows-landing.cs.
+# name | origin x,y | offset dx,dy | candidates x,y;x,y;... | expected x,y or none
+empty            | 0,0     | 100,0  |                         | none
+straight-right   | 0,0     | 100,0  | 100,0                   | 100,0
+closest-to-goal  | 0,0     | 100,0  | 50,0;95,0;200,0         | 95,0
+beyond-goal      | 0,0     | 100,0  | 30,0;120,0              | 120,0
+too-close        | 0,0     | 100,0  | 4,0                     | none
+just-past-4px    | 0,0     | 100,0  | 5,0                     | 5,0
+behind           | 0,0     | 100,0  | -100,0                  | none
+perpendicular    | 0,0     | 100,0  | 0,100                   | none
+inside-cone      | 0,0     | 100,0  | 100,110                 | 100,110
+outside-cone     | 0,0     | 100,0  | 100,125                 | none
+cone-beats-near  | 0,0     | 100,0  | 100,130;20,0            | 20,0
+diagonal         | 10,10   | -60,60 | -50,70;-50,-50;70,70    | -50,70
+offset-origin    | 500,300 | 0,-200 | 500,100;500,500;520,250 | 500,100
+tie-keeps-first  | 0,0     | 100,0  | 100,10;100,-10          | 100,10

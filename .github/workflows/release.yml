@@ -15,6 +15,7 @@ jobs:
         with:
           persist-credentials: false
       - run: make
+      - run: make test
       - run: tar czf nuphy-air60-v2-tools-macos-arm64.tar.gz bin scripts
       - if: startsWith(github.ref, 'refs/tags/')
         env:

@@ -6,7 +6,7 @@
 //   C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /nologo /target:winexe /optimize+
 //     /lib:C:\Windows\Microsoft.NET\Framework64\v4.0.30319\WPF
 //     /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:UIAutomationClient.dll
-//     /r:UIAutomationTypes.dll /r:WindowsBase.dll /out:snap.exe snap.cs
+//     /r:UIAutomationTypes.dll /r:WindowsBase.dll /out:snap.exe snap.cs windows-landing.cs
 //
 // Usage: snap.exe            F13 hotkey loop (single instance, no console)
 //        snap.exe count      print the element count and collection time, then exit
@@ -478,25 +478,7 @@ sealed class Session
     {
         double dx = (key % KeyMap.Columns - 4.5) / 4.5, dy = key / KeyMap.Columns - 1;
         double ox = dx * 0.45 * monitor.Width, oy = dy * 0.35 * monitor.Height;
-        return Nearest(targets.Elements, ox, oy) ?? Nearest(targets.Windows, ox, oy);
-    }
-
-    Point? Nearest(List<Point> candidates, double ox, double oy)
-    {
-        double length = Math.Sqrt(ox * ox + oy * oy), gx = cursor.X + ox, gy = cursor.Y + oy, best = double.MaxValue;
-        Point? nearest = null;
-        foreach (var p in candidates)
-        {
-            double vx = p.X - cursor.X, vy = p.Y - cursor.Y, distance = Math.Sqrt(vx * vx + vy * vy);
-            if (distance <= 4 || (vx * ox + vy * oy) / (distance * length) <= 0.64) continue;
-            double toGoal = (p.X - gx) * (p.X - gx) + (p.Y - gy) * (p.Y - gy);
-            if (toGoal < best)
-            {
-                best = toGoal;
-                nearest = p;
-            }
-        }
-        return nearest;
+        return PadLanding.Pick(targets.Elements, cursor, ox, oy) ?? PadLanding.Pick(targets.Windows, cursor, ox, oy);
     }
 
     void Redraw()
