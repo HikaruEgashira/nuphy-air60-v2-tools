@@ -157,6 +157,22 @@ final class PadView: NSView {
   }
 }
 
+// BEGIN pickLanding (extracted verbatim by `make test`; keep self-contained)
+/// The point within ~50 degrees of `dir` (cosine > 0.64) and more than 4 px from `pos`
+/// that is closest to the goal `pos + dir`; on ties the earliest point wins.
+func pickLanding(from pos: CGPoint, dir: CGVector, among pts: [CGPoint]) -> CGPoint? {
+  let goal = CGPoint(x: pos.x + dir.dx, y: pos.y + dir.dy)
+  let len = hypot(dir.dx, dir.dy)
+  guard len > 0 else { return nil }
+  return pts.filter { p in
+    let v = CGVector(dx: p.x - pos.x, dy: p.y - pos.y)
+    let d = hypot(v.dx, v.dy)
+    guard d > 4 else { return false }
+    return (v.dx * dir.dx + v.dy * dir.dy) / (d * len) > 0.64
+  }.min { hypot($0.x - goal.x, $0.y - goal.y) < hypot($1.x - goal.x, $1.y - goal.y) }
+}
+// END pickLanding
+
 /// Caps tap: labels each letter key on its target; each letter key snaps the cursor to the
 /// element in that key's direction and distance.
 final class PadSession {
@@ -200,18 +216,9 @@ final class PadSession {
   /// nil when nothing lies that way.
   func landing(_ r: Int, _ c: Int) -> CGPoint? {
     let o = padOffset(r, c)
-    let goal = CGPoint(x: pos.x + o.dx * span.width, y: pos.y + o.dy * span.height)
     let dir = CGVector(dx: o.dx * span.width, dy: o.dy * span.height)
-    let len = hypot(dir.dx, dir.dy)
-    func best(_ pts: [CGPoint]) -> CGPoint? {
-      pts.filter { p in
-        let v = CGVector(dx: p.x - pos.x, dy: p.y - pos.y)
-        let d = hypot(v.dx, v.dy)
-        guard d > 4 else { return false }
-        return (v.dx * dir.dx + v.dy * dir.dy) / (d * len) > 0.64   // within ~50 degrees
-      }.min { hypot($0.x - goal.x, $0.y - goal.y) < hypot($1.x - goal.x, $1.y - goal.y) }
-    }
-    return best(elements.map(center)) ?? best(windows.map(center))
+    return pickLanding(from: pos, dir: dir, among: elements.map(center))
+      ?? pickLanding(from: pos, dir: dir, among: windows.map(center))
   }
 
   func local(_ p: CGPoint) -> CGPoint { CGPoint(x: p.x - screen.minX, y: p.y - screen.minY) }
