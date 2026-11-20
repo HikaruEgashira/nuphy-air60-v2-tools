@@ -157,6 +157,18 @@ final class PadView: NSView {
   }
 }
 
+/// Picks the point within ~50 degrees of `dir` from `origin`, more than 4 px away, closest to
+/// `goal`; the first point wins a tie.
+func pickLanding(from origin: CGPoint, dir: CGVector, goal: CGPoint, among pts: [CGPoint]) -> CGPoint? {
+  let len = hypot(dir.dx, dir.dy)
+  return pts.filter { p in
+    let v = CGVector(dx: p.x - origin.x, dy: p.y - origin.y)
+    let d = hypot(v.dx, v.dy)
+    guard d > 4 else { return false }
+    return (v.dx * dir.dx + v.dy * dir.dy) / (d * len) > 0.64   // within ~50 degrees
+  }.min { hypot($0.x - goal.x, $0.y - goal.y) < hypot($1.x - goal.x, $1.y - goal.y) }
+}
+
 /// Caps tap: labels each letter key on its target; each letter key snaps the cursor to the
 /// element in that key's direction and distance.
 final class PadSession {
@@ -202,16 +214,8 @@ final class PadSession {
     let o = padOffset(r, c)
     let goal = CGPoint(x: pos.x + o.dx * span.width, y: pos.y + o.dy * span.height)
     let dir = CGVector(dx: o.dx * span.width, dy: o.dy * span.height)
-    let len = hypot(dir.dx, dir.dy)
-    func best(_ pts: [CGPoint]) -> CGPoint? {
-      pts.filter { p in
-        let v = CGVector(dx: p.x - pos.x, dy: p.y - pos.y)
-        let d = hypot(v.dx, v.dy)
-        guard d > 4 else { return false }
-        return (v.dx * dir.dx + v.dy * dir.dy) / (d * len) > 0.64   // within ~50 degrees
-      }.min { hypot($0.x - goal.x, $0.y - goal.y) < hypot($1.x - goal.x, $1.y - goal.y) }
-    }
-    return best(elements.map(center)) ?? best(windows.map(center))
+    return pickLanding(from: pos, dir: dir, goal: goal, among: elements.map(center))
+      ?? pickLanding(from: pos, dir: dir, goal: goal, among: windows.map(center))
   }
 
   func local(_ p: CGPoint) -> CGPoint { CGPoint(x: p.x - screen.minX, y: p.y - screen.minY) }
